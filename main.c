@@ -45,7 +45,8 @@ typedef enum MetaCommandResult_t MetaCommandResult;
 
 enum PrepareResult_t {
     PREPARE_SUCCESS,
-    PREPARE_UNRECOGNIZED_STATEMENT
+    PREPARE_UNRECOGNIZED_STATEMENT,
+    PREPARE_SYNTAX_ERROR
 };
 typedef enum PrepareResult_t PrepareResult;
 
@@ -63,8 +64,18 @@ enum StatementType_t {
 };
 typedef enum StatementType_t StatementType;
 
+const uint32_t COLOUM_USERNAME_SIZE = 32;
+const uint32_t COLOUM_EMAIL_SIZE = 255;
+struct Row_t {
+    uint32_t id;
+    char username[COLOUM_USERNAME_SIZE];
+    char email[COLOUM_EMAIL_SIZE];
+};
+typedef struct Row_t Row;
+
 struct Statement_t {
     StatementType type;
+    Row row_to_insert;
 };
 typedef struct Statement_t Statement;
 
@@ -72,9 +83,14 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
                                 Statement *statement) {
     if (strncmp(input_buffer->buffer, "insert", 6) == 0) {
         statement->type = STATEMENT_INSERT;
+        int args_assigned = sscanf(input_buffer->buffer, "insert %d %s %s", &(statement->row_to_insert.id),
+                                   &(statement->row_to_insert.username), &(statement->row_to_insert.email));
+        if (args_assigned < 3) {
+            return PREPARE_SYNTAX_ERROR;
+        }
         return PREPARE_SUCCESS;
     }
-    if (strncmp(input_buffer->buffer, "select",6) == 0) {
+    if (strcmp(input_buffer->buffer, "select") == 0) {
         statement->type = STATEMENT_SELECT;
         return PREPARE_SUCCESS;
     }
@@ -82,7 +98,7 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
     return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
-void execute_statement(Statement* statement) {
+void execute_statement(Statement *statement) {
     switch (statement->type) {
         case (STATEMENT_INSERT):
             printf("This is where we would do an insert.\n");
@@ -118,7 +134,6 @@ int main(int argc, char *argv[]) {
                        input_buffer->buffer);
                 continue;
         }
-
         execute_statement(&statement);
         printf("Executed.\n");
     }
